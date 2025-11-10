@@ -30,10 +30,14 @@ import Data.List (intercalate)
 -- | Compute the factorial of a number
 -- factorial :: Int -> Int
 
+-- fact :: Int -> Int
+-- fact 0 = 1
+-- fact n = n * fact (n - 1)
+
 -- | Compute the factorial of a number, in continuation passing style
 cpsFactorial:: Int -> (Int -> r) -> r
 cpsFactorial 0 k = k 1
-cpsFactorial n k = undefined
+cpsFactorial n k = cpsFactorial n-1 (\res -> k (n * res))
 
 -- | Compute the n-th fibonacci number F(n).
 --    Recall F(0) = 0, F(1) = 1, and F(n) = F(n-1) + F(n-2)
@@ -46,20 +50,23 @@ fibonacci n = (fibonacci (n - 1)) + (fibonacci (n - 2))
 
 -- | Compute the n-th fibonacci number F(n), in continuation passing style
 cpsFibonacci:: Int -> (Int -> r) -> r
-cpsFibonacci n k = undefined
+cpsFibonacci 0 k = k 0
+cpsFibonacci 1 k = k 1
+cpsFibonacci n k = cpsFibonacci (n - 1) ( \res1 -> cpsFibonacci (n - 2) ( \res2 -> k (a + b)))
 
 ------------------------------------------------------------------------------
 -- | List functions
 
 -- | CPS transform of the function `length`, which computes the length of a list
 cpsLength :: [a] -> (Int -> r) -> r
-cpsLength [] k = undefined
-
+cpsLength [] k = k 0
+cpsLength (x:xs) k = cpsLength xs (\res -> k (res + 1))
 
 -- | CPS transform of the function `map`. The argument function (to be applied
 --   every element of the list) is written in direct style
 cpsMap :: (a -> b) -> [a] -> ([b] -> r) -> r
-cpsMap f [] k = undefined
+cpsMap f [] k = k []
+cpsMap f (x:xs) k = cpsMap f xs (\res -> k (f x : res))
 
 ------------------------------------------------------------------------------
 -- Merge Sort
@@ -77,15 +84,30 @@ cpsMap f [] k = undefined
 
 -- | CPS transform of mergeSort
 cpsMergeSort :: [Int] -> ([Int] -> r) -> r
-cpsMergeSort lst k = undefined
+cpsMergeSort [] k = k []
+cpsMergeSort [x] k = k [x]
+-- split two lst, pass the result to the continuation
+cpsMergeSort lst k = cpsSplit lst (\(left_lst, right_lst) 
+-- sort left lst first, and then sort right lst
+-> cpsMergeSort left_lst (\res1 
+-> cpsMergeSort right_lst (\res2 
+-- merge two sorted lsts
+-> cpsMerge res1 res2 k)))
 
 -- | CPS transform of split
 cpsSplit :: [Int] -> (([Int], [Int]) -> r) -> r
-cpsSplit lst k = undefined
+cpsSplit [] k = k ([], [])
+cpsSplit [x] k = k ([x], [])
+cpsSplit (x:y:xs) k = cpsSplit xs (\(res1, res2) -> k (x:res1, y:res2)) 
 
 -- | CPS transform of merge
 cpsMerge :: [Int] -> [Int] -> ([Int] -> r) -> r
-cpsMerge lst1 lst2 k = undefined
+cpsMerge [] lst2 k = k lst2
+cpsMerge lst1 [] k = k lst1
+cpsMerge (x:xs) (y:ys) k = 
+    if x <= y
+    then cpsMerge xs (y:ys) (\res -> k (x:res))
+    else cpsMerge (x:xs) ys (\res -> k (y:res))
 
 ------------------------------------------------------------------------------
 -- * Main Task. CPS Transforming The Orange Interpreter *
