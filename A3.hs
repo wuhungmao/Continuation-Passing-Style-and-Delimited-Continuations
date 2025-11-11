@@ -37,7 +37,7 @@ import Data.List (intercalate)
 -- | Compute the factorial of a number, in continuation passing style
 cpsFactorial:: Int -> (Int -> r) -> r
 cpsFactorial 0 k = k 1
-cpsFactorial n k = cpsFactorial n-1 (\res -> k (n * res))
+cpsFactorial n k = cpsFactorial (n-1) (\res -> k (n * res))
 
 -- | Compute the n-th fibonacci number F(n).
 --    Recall F(0) = 0, F(1) = 1, and F(n) = F(n-1) + F(n-2)
@@ -52,7 +52,7 @@ fibonacci n = (fibonacci (n - 1)) + (fibonacci (n - 2))
 cpsFibonacci:: Int -> (Int -> r) -> r
 cpsFibonacci 0 k = k 0
 cpsFibonacci 1 k = k 1
-cpsFibonacci n k = cpsFibonacci (n - 1) ( \res1 -> cpsFibonacci (n - 2) ( \res2 -> k (a + b)))
+cpsFibonacci n k = cpsFibonacci (n - 1) ( \res1 -> cpsFibonacci (n - 2) ( \res2 -> k (res1 + res2)))
 
 ------------------------------------------------------------------------------
 -- | List functions
@@ -87,12 +87,9 @@ cpsMergeSort :: [Int] -> ([Int] -> r) -> r
 cpsMergeSort [] k = k []
 cpsMergeSort [x] k = k [x]
 -- split two lst, pass the result to the continuation
-cpsMergeSort lst k = cpsSplit lst (\(left_lst, right_lst) 
 -- sort left lst first, and then sort right lst
--> cpsMergeSort left_lst (\res1 
--> cpsMergeSort right_lst (\res2 
 -- merge two sorted lsts
--> cpsMerge res1 res2 k)))
+cpsMergeSort lst k = cpsSplit lst (\(left_lst, right_lst) -> cpsMergeSort left_lst (\res1 -> cpsMergeSort right_lst (\res2 -> cpsMerge res1 res2 k)))
 
 -- | CPS transform of split
 cpsSplit :: [Int] -> (([Int], [Int]) -> r) -> r
@@ -123,6 +120,70 @@ cpsMerge (x:xs) (y:ys) k =
 --   to define `Expr` Haskell data type, and to check for errors.
 cpsEval :: Env -> Expr -> (Value -> Value) -> Value
 cpsEval env (Literal v) k = k v -- TODO: handle errors!
+
+-- eval env (Plus a b)  = case ((eval env a), (eval env b)) of
+-- (Num x, Num y) -> Num (x + y)
+-- (Error a, _)   -> Error a
+-- (_, Error b)   -> Error b
+-- _              -> Error "Plus"
+cpsEval env (Plus a b) k = 
+    cpsEval env a (\res_a ->
+        case res_a of
+            (Num a) -> 
+                cpsEval env b (\res_b ->
+                    case res_b of
+                        (Num b) -> k (Num (a + b))
+                        (Error e) -> k (Error e)
+                        _ -> k (Error "Plus"))
+            (Error e) -> k (Error e)
+            _ -> k (Error "Plus"))
+
+-- eval env (Times a b) = case ((eval env a), (eval env b)) of
+--     (Num x, Num y) -> Num (x * y)
+--     (Error c, _)   -> Error c
+--     (_, Error d)   -> Error d
+--     (c, d)         -> Error "Times"
+cpsEval env (Times a b) k =
+    cpsEval env a (\res_a ->
+        case res_a of
+            (Num a) ->
+                cpsEval env b (\res_b ->
+                    case res_b of
+                        (Num b) -> k (Num (a * b))
+                        (Error e) -> k (Error e)
+                        _ -> k (Error "Times"))
+            (Error e) -> k (Error e)
+            _ -> k (Error "Times"))
+
+-- eval env (Equal a b) = case ((eval env a), (eval env b)) of
+--     (Error c, _)   -> Error c
+--     (_, Error d)   -> Error d
+--     (c, d)         -> if c == d then T else F
+cpsEval env (Equal a b) k =
+    cpsEval env a (\res_a ->
+        case res_a of
+            (Error a) -> k (Error a)
+            _ -> cpsEval env b (\res_b ->
+                case res_b of
+                    (Error b) -> k (Error b)
+                    _ -> if res_a == res_b 
+                         then k T 
+                         else k F))
+
+-- eval env (Cons a b) =  case ((eval env a), (eval env b)) of
+--     (Error c, _)   -> Error c
+--     (_, Error d)   -> Error d
+--     (c, d)         -> Pair c d
+
+cpsEval env (Cons a b) k =
+    cpsEval env a (\res_a ->
+        case res_a of
+            (Error a) -> k (Error a)
+            _ -> cpsEval env b (\res_b ->
+                case res_b of
+                    (Error b) -> k (Error b)
+                    _ -> k (Pair res_a res_b)))
+
 cpsEval env (Lambda params body) k_lambda = k_lambda $ Closure $ \argvals k_app ->
     -- TODO: handle errors!
     -- note that we differentiate between k_lambda: the continuation 
