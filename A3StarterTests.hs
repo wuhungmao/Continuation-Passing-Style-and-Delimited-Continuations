@@ -10,6 +10,7 @@ module A3StarterTest
 where
 
 import Test.QuickCheck (Property, (==>), label, quickCheck)
+import qualified Data.Map
 
 import A3 (cpsFactorial, cpsFibonacci, cpsLength, cpsMap,
            cpsMergeSort, cpsSplit, cpsMerge, cpsEval)
@@ -57,19 +58,29 @@ prop_cpsMergeSort = (cpsMergeSort [1, 2, 4, 3] id) == [1, 2, 3, 4]
 -- | cpsEval tests
 
 -- Example: invalid literal
--- example0 = cpsEval emptyEnv (Literal $ Error "error") id
+example0 = cpsEval emptyEnv (Literal $ Error "error") id
+prop_cpsEvalExample0 :: Bool
+prop_cpsEvalExample0 = example0 == Error "Literal"
 
 -- Example: apply the identity function to the number 3
 -- example1 = cpsEval emptyEnv (App (Lambda ["a"] (Var "a")) [Literal $ Num 3]) id
+-- prop_cpsEvalExample1 :: Bool
+-- prop_cpsEvalExample1 = example1 == Num 3
 
 -- Example: apply a function that returns 10 plus the second argument
 --          to the arguments [1, 2]
 -- example2 = cpsEval emptyEnv (App (Lambda ["a", "b"] (Plus (Literal $ Num 10) (Var "b")))
 --                               [Literal $ Num 1, Literal $ Num 2]) id
+-- prop_cpsEvalExample2 :: Bool
+-- prop_cpsEvalExample2 = example2 == Num 12
+
 -- Example: if expression
--- example3 = cpsEval emptyEnv (If (Equal (Literal F) (Literal F))
---                              (Literal T)
---                              (Literal F)) id
+example3 = cpsEval emptyEnv (If (Equal (Literal F) (Literal F))
+                             (Literal T)
+                             (Literal F)) id
+prop_cpsEvalExample3 :: Bool
+prop_cpsEvalExample3 = example3 == T
+
 -- Example: shift expression
 -- example4 = (cpsEval emptyEnv
 --                     (Plus (Literal $ Num 2) 
@@ -79,7 +90,8 @@ prop_cpsMergeSort = (cpsMergeSort [1, 2, 4, 3] id) == [1, 2, 3, 4]
 --                                   (App (Var "d") [Literal $ Num 10]))
 --                      ))
 --                      id)
-
+-- prop_cpsEvalExample4 :: Bool
+-- prop_cpsEvalExample4 = example4 == Num 19
 
 -- additional tests
 -- Test Plus
@@ -88,9 +100,9 @@ prop_cpsEvalPlus :: Bool
 prop_cpsEvalPlus = examplePlus == Num 5
 
 -- Test error propagation in Plus
-examplePlusError = cpsEval emptyEnv (Plus (Literal $ Error "bad") (Literal $ Num 3)) id
+examplePlusError = cpsEval emptyEnv (Plus (Literal $ Error "Literal") (Literal $ Num 3)) id
 prop_cpsEvalPlusError :: Bool
-prop_cpsEvalPlusError = examplePlusError == Error "bad"
+prop_cpsEvalPlusError = examplePlusError == Error "Literal"
 
 -- Test Times
 exampleTimes = cpsEval emptyEnv (Times (Literal $ Num 4) (Literal $ Num 5)) id
@@ -98,9 +110,9 @@ prop_cpsEvalTimes :: Bool
 prop_cpsEvalTimes = exampleTimes == Num 20
 
 -- Test error propagation in Times
-exampleTimesError = cpsEval emptyEnv (Times (Literal $ Num 4) (Literal $ Error "oops")) id
+exampleTimesError = cpsEval emptyEnv (Times (Literal $ Num 4) (Literal $ Error "Literal")) id
 prop_cpsEvalTimesError :: Bool
-prop_cpsEvalTimesError = exampleTimesError == Error "oops"
+prop_cpsEvalTimesError = exampleTimesError == Error "Literal"
 
 -- Test Equal (true case)
 exampleEqualTrue = cpsEval emptyEnv (Equal (Literal $ Num 7) (Literal $ Num 7)) id
@@ -118,16 +130,72 @@ prop_cpsEvalCons :: Bool
 prop_cpsEvalCons = exampleCons == Pair (Num 1) (Num 2)
 
 
--- prop_cpsEvalExample0 :: Bool
--- prop_cpsEvalExample0 = example0 == Error "Literal"
--- prop_cpsEvalExample1 :: Bool
--- prop_cpsEvalExample1 = example1 == Num 3
--- prop_cpsEvalExample2 :: Bool
--- prop_cpsEvalExample2 = example2 == Num 12
--- prop_cpsEvalExample3 :: Bool
--- prop_cpsEvalExample3 = example3 == T
--- prop_cpsEvalExample4 :: Bool
--- prop_cpsEvalExample4 = example4 == Num 19
+-- Valid literal
+exampleLiteralNum = cpsEval emptyEnv (Literal (Num 42)) id
+prop_cpsEvalLiteralNum :: Bool
+prop_cpsEvalLiteralNum = exampleLiteralNum == Num 42
+
+-- Invalid literal (assuming validLiteral rejects Closure or Error)
+exampleLiteralInvalid = cpsEval emptyEnv (Literal (Error "bad")) id
+prop_cpsEvalLiteralInvalid :: Bool
+prop_cpsEvalLiteralInvalid = exampleLiteralInvalid == Error "Literal"
+
+-- First of a pair
+exampleFirst = cpsEval emptyEnv (First (Literal (Pair (Num 1) (Num 2)))) id
+prop_cpsEvalFirst :: Bool
+prop_cpsEvalFirst = exampleFirst == Num 1
+
+-- First error propagation
+exampleFirstError = cpsEval emptyEnv (First (Literal (Error "Literal"))) id
+prop_cpsEvalFirstError :: Bool
+prop_cpsEvalFirstError = exampleFirstError == Error "Literal"
+
+-- First on non-pair
+exampleFirstInvalid = cpsEval emptyEnv (First (Literal (Num 99))) id
+prop_cpsEvalFirstInvalid :: Bool
+prop_cpsEvalFirstInvalid = exampleFirstInvalid == Error "First"
+
+-- Rest of a pair
+exampleRest = cpsEval emptyEnv (Rest (Literal (Pair (Num 1) (Num 2)))) id
+prop_cpsEvalRest :: Bool
+prop_cpsEvalRest = exampleRest == Num 2
+
+-- Rest error propagation
+exampleRestError = cpsEval emptyEnv (Rest (Literal (Error "Literal"))) id
+prop_cpsEvalRestError :: Bool
+prop_cpsEvalRestError = exampleRestError == Error "Literal"
+
+-- Rest on non-pair
+exampleRestInvalid = cpsEval emptyEnv (Rest (Literal (Num 99))) id
+prop_cpsEvalRestInvalid :: Bool
+prop_cpsEvalRestInvalid = exampleRestInvalid == Error "Rest"
+
+-- If with true condition
+exampleIfTrue = cpsEval emptyEnv (If (Literal T) (Literal (Num 1)) (Literal (Num 2))) id
+prop_cpsEvalIfTrue :: Bool
+prop_cpsEvalIfTrue = exampleIfTrue == Num 1
+
+-- If with false condition
+exampleIfFalse = cpsEval emptyEnv (If (Literal F) (Literal (Num 1)) (Literal (Num 2))) id
+prop_cpsEvalIfFalse :: Bool
+prop_cpsEvalIfFalse = exampleIfFalse == Num 2
+
+-- If with error condition
+exampleIfError = cpsEval emptyEnv (If (Literal (Error "Literal")) (Literal (Num 1)) (Literal (Num 2))) id
+prop_cpsEvalIfError :: Bool
+prop_cpsEvalIfError = exampleIfError == Error "Literal"
+
+-- Environment with variable binding
+envWithX = Data.Map.fromList [("x", Num 10)]
+
+exampleVar = cpsEval envWithX (Var "x") id
+prop_cpsEvalVar :: Bool
+prop_cpsEvalVar = exampleVar == Num 10
+
+-- Variable not found
+exampleVarMissing = cpsEval emptyEnv (Var "y") id
+prop_cpsEvalVarMissing :: Bool
+prop_cpsEvalVarMissing = exampleVarMissing == Error "Var"
 
 
 ------------------------------------------------------------------------------
@@ -151,17 +219,33 @@ main = do
     quickCheck prop_cpsMap
     quickCheck prop_cpsMap_cont
     quickCheck prop_cpsMergeSort
+    quickCheck prop_cpsEvalExample0
     -- quickCheck prop_cpsEvalExample1
     -- quickCheck prop_cpsEvalExample2
-    -- quickCheck prop_cpsEvalExample3
+    quickCheck prop_cpsEvalExample3
     -- quickCheck prop_cpsEvalExample4
 
     -- New CPS evaluation tests
     quickCheck prop_cpsEvalPlus
+    quickCheck prop_cpsEvalPlusError
     quickCheck prop_cpsEvalTimes
+    quickCheck prop_cpsEvalTimesError
     quickCheck prop_cpsEvalEqualTrue
     quickCheck prop_cpsEvalEqualFalse
     quickCheck prop_cpsEvalCons
-    quickCheck prop_cpsEvalPlusError
-    quickCheck prop_cpsEvalTimesError
+
+    -- Additional CPS evaluation tests
+    quickCheck prop_cpsEvalLiteralNum
+    quickCheck prop_cpsEvalLiteralInvalid
+    quickCheck prop_cpsEvalFirst
+    quickCheck prop_cpsEvalFirstError
+    quickCheck prop_cpsEvalFirstInvalid
+    quickCheck prop_cpsEvalRest
+    quickCheck prop_cpsEvalRestError
+    quickCheck prop_cpsEvalRestInvalid
+    quickCheck prop_cpsEvalIfTrue
+    quickCheck prop_cpsEvalIfFalse
+    quickCheck prop_cpsEvalIfError
+    quickCheck prop_cpsEvalVar
+    quickCheck prop_cpsEvalVarMissing
 
