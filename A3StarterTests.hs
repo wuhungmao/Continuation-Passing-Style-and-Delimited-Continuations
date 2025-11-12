@@ -82,16 +82,16 @@ prop_cpsEvalExample3 :: Bool
 prop_cpsEvalExample3 = example3 == T
 
 -- Example: shift expression
--- example4 = (cpsEval emptyEnv
---                     (Plus (Literal $ Num 2) 
---                           (Shift "d" 
---                               (Plus 
---                                   (App (Var "d") [Literal $ Num 5]) 
---                                   (App (Var "d") [Literal $ Num 10]))
---                      ))
---                      id)
--- prop_cpsEvalExample4 :: Bool
--- prop_cpsEvalExample4 = example4 == Num 19
+example4 = (cpsEval emptyEnv
+                    (Plus (Literal $ Num 2) 
+                          (Shift "d" 
+                              (Plus 
+                                  (App (Var "d") [Literal $ Num 5]) 
+                                  (App (Var "d") [Literal $ Num 10]))
+                     ))
+                     id)
+prop_cpsEvalExample4 :: Bool
+prop_cpsEvalExample4 = example4 == Num 19
 
 -- additional tests
 -- Test Plus
@@ -197,6 +197,58 @@ exampleVarMissing = cpsEval emptyEnv (Var "y") id
 prop_cpsEvalVarMissing :: Bool
 prop_cpsEvalVarMissing = exampleVarMissing == Error "Var"
 
+exampleShiftAbortNoApp :: Value
+exampleShiftAbortNoApp = cpsEval emptyEnv 
+  (Plus 
+    (Literal (Num 1)) 
+    (Plus 
+      (Shift "k" 
+        (Literal (Num 100)) -- The Shift body simply returns 100, aborting the outer Plus
+      ) 
+      (Literal (Num 3)) -- This part (and the initial Literal 1) is skipped/aborted
+    )
+  ) 
+  id
+
+prop_cpsEvalShift :: Bool
+prop_cpsEvalShift = exampleShiftAbortNoApp == Num 100
+
+exampleResetBoundary :: Value
+exampleResetBoundary = cpsEval emptyEnv 
+  (Plus 
+    (Literal (Num 3)) 
+    (Plus 
+      (Reset 
+        (Plus 
+          (Literal (Num 1)) 
+          (Shift "d" 
+            (App (Var "d") [Literal (Num 5)])
+          )
+        )
+      ) 
+      (Literal (Num 10)) 
+    )
+  ) 
+  id
+
+prop_cpsEvalReset :: Bool
+prop_cpsEvalReset = exampleResetBoundary == Num 18
+
+exampleResetNoApp :: Value
+exampleResetNoApp = cpsEval emptyEnv 
+  (Plus 
+    (Literal (Num 100)) 
+    (Plus 
+      (Reset 
+        (Shift "k" (Literal (Num 5))) 
+      ) 
+      (Literal (Num 1)) 
+    )
+  ) 
+  id
+
+prop_cpsEvalResetNoApp :: Bool
+prop_cpsEvalResetNoApp = exampleResetNoApp == Num 106
 
 ------------------------------------------------------------------------------
 -- Main
@@ -248,4 +300,9 @@ main = do
     quickCheck prop_cpsEvalIfError
     quickCheck prop_cpsEvalVar
     quickCheck prop_cpsEvalVarMissing
+
+    -- Shift tests, need to add more tests here later when app is implemented
+    quickCheck prop_cpsEvalShift
+    quickCheck prop_cpsEvalReset
+    quickCheck prop_cpsEvalResetNoApp
 
