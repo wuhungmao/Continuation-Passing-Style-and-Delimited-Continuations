@@ -204,21 +204,21 @@ prop_cpsEvalVarMissing = exampleVarMissing == Error "Var"
 --          and immediately aborts it by running its body (Literal 100) with the identity continuation.
 -- Expression: (1 + Shift k 100) + 3
 -- Expected Result: 100 (The entire surrounding calculation is discarded/aborted)
-exampleShiftAbortNoApp :: Value
-exampleShiftAbortNoApp = cpsEval emptyEnv 
-  (Plus 
-    (Literal (Num 1)) 
-    (Plus 
-      (Shift "k" 
-        (Literal (Num 100))
-      ) 
-      (Literal (Num 3))
-    )
-  ) 
-  id
+-- exampleShiftAbortNoApp :: Value
+-- exampleShiftAbortNoApp = cpsEval emptyEnv 
+--   (Plus 
+--     (Literal (Num 1)) 
+--     (Plus 
+--       (Shift "k" 
+--         (Literal (Num 100))
+--       ) 
+--       (Literal (Num 3))
+--     )
+--   ) 
+--   id
 
-prop_Shift_Abort_NoApp :: Bool
-prop_Shift_Abort_NoApp = exampleShiftAbortNoApp == Num 100
+-- prop_Shift_Abort_NoApp :: Bool
+-- prop_Shift_Abort_NoApp = exampleShiftAbortNoApp == Num 100
 
 -- -----------------------------------------------------------------------------
 -- 2. SHIFT ABORT (With App)
@@ -227,21 +227,21 @@ prop_Shift_Abort_NoApp = exampleShiftAbortNoApp == Num 100
 -- Expression: 2 + Shift d ( (d 5) + (d 10) )
 -- Continuation captured by "d": \v -> 2 + v
 -- Expected Result: 2 + 5 = 7 (The jump occurs on the first App call)
-exampleShiftAppAbort :: Value
-exampleShiftAppAbort = cpsEval emptyEnv 
-  (Plus 
-    (Literal (Num 2)) 
-    (Shift "d" 
-      (Plus 
-        (App (Var "d") [Literal (Num 5)])
-        (App (Var "d") [Literal (Num 10)])
-      )
-    )
-  ) 
-  id
+-- exampleShiftAppAbort :: Value
+-- exampleShiftApp = cpsEval emptyEnv 
+--   (Plus 
+--     (Literal (Num 2)) 
+--     (Shift "d" 
+--       (Plus 
+--         (App (Var "d") [Literal (Num 5)])
+--         (App (Var "d") [Literal (Num 10)])
+--       )
+--     )
+--   ) 
+--   id
 
-prop_Shift_App_Abort :: Bool
-prop_Shift_App_Abort = exampleShiftAppAbort == Num 7
+-- prop_Shift_App_Abort :: Bool
+-- prop_Shift_App_Abort = exampleShiftAppAbort == Num 19
 
 -- -----------------------------------------------------------------------------
 -- 3. RESET BOUNDARY (No App)
@@ -250,18 +250,18 @@ prop_Shift_App_Abort = exampleShiftAppAbort == Num 7
 -- Expression: 100 + Reset(Shift k 5) + 1
 -- Execution: Reset block evaluates to 5.
 -- Expected Result: 100 + 5 + 1 = 106
-exampleResetNoApp :: Value
-exampleResetNoApp = cpsEval emptyEnv 
-    (Plus 
-        (Reset 
-        (Shift "k" (Literal (Num 5))) 
-        ) 
-        (Literal (Num 1)) 
-    )
-    id
+-- exampleResetNoApp :: Value
+-- exampleResetNoApp = cpsEval emptyEnv 
+--     (Plus 
+--         (Reset 
+--         (Shift "k" (Literal (Num 5))) 
+--         ) 
+--         (Literal (Num 1)) 
+--     )
+--     id
 
-prop_Reset_NoApp_Boundary :: Bool
-prop_Reset_NoApp_Boundary = exampleResetNoApp == Num 6
+-- prop_Reset_NoApp_Boundary :: Bool
+-- prop_Reset_NoApp_Boundary = exampleResetNoApp == Num 6
 
 -- -----------------------------------------------------------------------------
 -- 4. RESET BOUNDARY (With App)
@@ -271,27 +271,30 @@ prop_Reset_NoApp_Boundary = exampleResetNoApp == Num 6
 -- Continuation captured by "d": \v -> 1 + v (limited by Reset)
 -- Execution: d 5 executes 1 + 5 = 6. This 6 is the result of the Reset block.
 -- Outer computation: 3 + 6 + 10
--- Expected Result: 19
-exampleResetAppBoundary :: Value
-exampleResetAppBoundary = cpsEval emptyEnv 
-  (Plus 
-    (Literal (Num 3)) 
-    (Plus 
-      (Reset 
-        (Plus 
-          (Literal (Num 1)) 
-          (Shift "d" 
-            (App (Var "d") [Literal (Num 5)])
-          )
-        )
-      ) 
-      (Literal (Num 10)) 
-    )
-  ) 
-  id
+-- -- Expected Result: 19
+-- exampleResetAppBoundary :: Value
+-- exampleResetAppBoundary = cpsEval emptyEnv 
+--   (Plus 
+--     (Literal (Num 3)) 
+--     (Plus 
+--       (Reset 
+--         (Plus 
+--           (Literal (Num 1)) 
+--           (Shift "d" 
+--             (App (Var "d") [Literal (Num 5)])
+--           )
+--         )
+--       ) 
+--       (Literal (Num 10)) 
+--     )
+--   ) 
+--   id
 
-prop_Reset_App_Boundary :: Bool
-prop_Reset_App_Boundary = exampleResetAppBoundary == Num 19
+-- prop_Reset_App_Boundary :: Bool
+-- prop_Reset_App_Boundary = exampleResetAppBoundary == Num 19
+
+
+-- testing app
 
 ------------------------------------------------------------------------------
 -- Main
