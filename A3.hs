@@ -119,7 +119,12 @@ cpsMerge (x:xs) (y:ys) k =
 --   This restriction on the type of the continuation makes it easier
 --   to define `Expr` Haskell data type, and to check for errors.
 cpsEval :: Env -> Expr -> (Value -> Value) -> Value
-cpsEval env (Literal v) k = k v -- TODO: handle errors!
+
+-- eval env (Literal v) = if validLiteral v then v else Error "Literal"
+cpsEval env (Literal v) k = 
+    if validLiteral v
+        then k v 
+        else k (Error "Literal")
 
 -- eval env (Plus a b)  = case ((eval env a), (eval env b)) of
 -- (Num x, Num y) -> Num (x + y)
@@ -184,6 +189,76 @@ cpsEval env (Cons a b) k =
                     (Error b) -> k (Error b)
                     _ -> k (Pair res_a res_b)))
 
+-- eval env (First expr) = case (eval env expr) of
+--     (Pair a b) -> a
+--     (Error c)  -> Error c
+--     _          -> Error "First"
+
+cpsEval env (First expr) k
+    = cpsEval env expr (\res ->
+        case res of
+            (Pair a b) -> k a
+            (Error c)  -> k (Error c)
+            _          -> k (Error "First"))
+
+-- eval env (Rest expr) = case (eval env expr) of
+--     (Pair a b) -> b
+--     (Error c)  -> Error c
+--     _          -> Error "Rest"
+
+cpsEval env (Rest expr) k
+    = cpsEval env expr (\res ->
+        case res of
+            (Pair a b) -> k b
+            (Error c)  -> k (Error c)
+            _          -> k (Error "Rest"))
+
+-- eval env (If cond expr alt) = case (eval env cond) of
+--     (Error c)  -> Error c
+--     F          -> (eval env alt)
+--     _          -> (eval env expr)
+
+cpsEval env (If cond expr alt) k 
+    = cpsEval env cond (\res ->
+        case res of
+            (Error c) -> k (Error c)
+            F         -> cpsEval env alt k
+            _         -> cpsEval env expr k)
+
+-- eval env (Var name)  = case (Data.Map.lookup name env) of
+--     Just a  -> a
+--     Nothing -> Error "Var"
+
+cpsEval env (Var name) k
+    = case (Data.Map.lookup name env) of
+        Just a  -> k a
+        Nothing -> k (Error "Var")
+
+-- TO-DOs: add shift, reset, lambda, app
+-- store k into env after binding var to k in env
+-- reset k to id
+cpsEval env (Shift var expr) k =
+    let contfunc = Closure (\[v] k' -> k v)
+        env'    = Data.Map.insert var contfunc env
+    in cpsEval env' expr id
+
+
+-- reset just calls the expr with the identity continuation
+cpsEval env (Reset expr) k = cpsEval env expr id
+
+
+-- eval env (Lambda params body) =  
+--     if params == unique params
+--     then Closure $ \vargs ->
+--         if length params == length vargs
+--         then let paramArgTuples = zip params vargs
+--                  newEnv = foldl (\e (param, arg) -> Data.Map.insert param arg e)
+--                                 env
+--                                 paramArgTuples
+--             in eval newEnv body
+--         else Error "App"
+--     else Error "Lambda"
+
 cpsEval env (Lambda params body) k_lambda = k_lambda $ Closure $ \argvals k_app ->
     -- TODO: handle errors!
     -- note that we differentiate between k_lambda: the continuation 
@@ -195,8 +270,15 @@ cpsEval env (Lambda params body) k_lambda = k_lambda $ Closure $ \argvals k_app 
                        env
                        paramArgTuples
     in cpsEval newEnv body k_app
--- cpsEval env _ k = undefined
 
+-- eval env (App proc args) = case (eval env proc) of
+--     Closure f -> let vargs = (map (eval env) args)
+--                      firstError = foldl combineError Nothing vargs
+--                  in case firstError of 
+--                      Just err -> err
+--                      Nothing  -> f vargs
+--     Error e   -> Error e
+--     _         -> Error "App"
 -- CPS evaluation for an application (App proc args)
 -- env : the current environment
 -- proc : the procedure/expression being applied
@@ -243,9 +325,8 @@ cpsEval env (App proc args) k =
                  -- Once all args are done, call k_args with full result list
                  k_args (res_a : res_as))
       )
-
-
-
+      
+cpsEval env _ k = undefined
 
 -- Helper function (written in direct style) to identify duplicate parameters in a lambda
 unique :: (Eq a) => [a] -> [a]
@@ -263,7 +344,6 @@ validLiteral Empty       = True
 validLiteral (Pair v w)  = (validLiteral v) && (validLiteral w)
 validLiteral (Closure p) = False
 validLiteral (Error e)   = False
-
 
 racketifyValue :: Value -> String
 racketifyValue T = "#t"
