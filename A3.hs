@@ -260,26 +260,26 @@ cpsEval env (Reset expr) k =
 --         else Error "App"
 --     else Error "Lambda"
 
-cpsEval env (Lambda params body) k_lambda = k_lambda $ Closure $ \argvals k_app ->
-    -- TODO: handle errors!
-    -- note that we differentiate between k_lambda: the continuation 
-    -- to call after *creating the closure*, and k_app: the continuation
-    -- to call after *evaluating the body of the closure* during an
-    -- application.
-    let paramArgTuples = zip params argvals
-        newEnv = foldl (\e (param, arg) -> Data.Map.insert param arg e)
-                       env
-                       paramArgTuples
-    in cpsEval newEnv body k_app
+-- CPS evaluation for Lambda expressions
+cpsEval env (Lambda params body) k_lambda =
+  -- Call the continuation k_lambda with a Closure value
+  -- representing the lambda we are defining.
+  k_lambda $ Closure $ \argvals k_app ->
+    -- When the closure is *applied*, we:
+    -- 1. Pair up the formal parameters and argument values.
+    -- 2. Extend the environment with these bindings.
+    -- 3. Evaluate the body of the function with cpsEval.
+    -- 4. Pass the result to k_app (the continuation for the function *application*).
+    if length argvals /= length params
+       then Error "Lambda"
+       else
+         let paramArgTuples = zip params argvals
+             newEnv = foldl (\e (param, arg) -> Data.Map.insert param arg e)
+                            env
+                            paramArgTuples
+         in cpsEval newEnv body k_app
 
--- eval env (App proc args) = case (eval env proc) of
---     Closure f -> let vargs = (map (eval env) args)
---                      firstError = foldl combineError Nothing vargs
---                  in case firstError of 
---                      Just err -> err
---                      Nothing  -> f vargs
---     Error e   -> Error e
---     _         -> Error "App"
+
 -- CPS evaluation for an application (App proc args)
 -- env : the current environment
 -- proc : the procedure/expression being applied
