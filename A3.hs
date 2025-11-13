@@ -244,8 +244,9 @@ cpsEval env (Shift var expr) k =
 
 
 -- reset just calls the expr with the identity continuation
-cpsEval env (Reset expr) k = cpsEval env expr id
-
+cpsEval env (Reset expr) k =
+    let result = cpsEval env expr id
+    in k result
 
 -- eval env (Lambda params body) =  
 --     if params == unique params
