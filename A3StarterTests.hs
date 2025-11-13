@@ -197,6 +197,56 @@ exampleVarMissing = cpsEval emptyEnv (Var "y") id
 prop_cpsEvalVarMissing :: Bool
 prop_cpsEvalVarMissing = exampleVarMissing == Error "Var"
 
+-- Identity continuation: just returns the value directly
+idK :: Value -> Value
+idK v = v
+
+-- Run CPS evaluation and simplify usage
+runCPS :: Expr -> Value
+runCPS expr = cpsEval emptyEnv expr idK
+
+-- A closure that adds two numbers
+addClosure :: Value
+addClosure = Closure (\[Num x, Num y] k -> k (Num (x + y)))
+
+-- A closure that makes a pair
+pairClosure :: Value
+pairClosure = Closure (\[a, b] k -> k (Pair a b))
+
+-- A closure that always returns an error
+errorClosure :: Value
+errorClosure = Closure (\_ k -> k (Error "Something went wrong"))
+
+prop_cpsEvalAdd :: Bool
+prop_cpsEvalAdd =
+  runCPS (App (Literal addClosure) [Literal (Num 2), Literal (Num 3)]) == Num 5
+
+prop_cpsEvalPair :: Bool
+prop_cpsEvalPair =
+  runCPS (App (Literal pairClosure) [Literal (Num 1), Literal (Num 2)]) == Pair (Num 1) (Num 2)
+
+prop_cpsEvalErrorPropagation :: Bool
+prop_cpsEvalErrorPropagation =
+  runCPS (App (Literal errorClosure) []) == Error "Something went wrong"
+
+prop_cpsEvalInvalidApp :: Bool
+prop_cpsEvalInvalidApp =
+  runCPS (App (Literal (Num 10)) [Literal (Num 2)]) == Error "App"
+
+prop_cpsEvalLambdaAdd :: Bool
+prop_cpsEvalLambdaAdd =
+  let env = Data.Map.fromList [("+", addClosure)]
+      expr = App (Lambda ["x", "y"] (App (Var "+") [Var "x", Var "y"]))
+                 [Literal (Num 2), Literal (Num 3)]
+  in cpsEval env expr idK == Num 5
+
+prop_cpsEvalLambdaNested :: Bool
+prop_cpsEvalLambdaNested =
+  let env = Data.Map.fromList [("add", addClosure)]
+      expr = App
+                (Lambda ["double"] (App (Var "double") [Literal (Num 5)]))
+                [Lambda ["x"] (App (Var "add") [Var "x", Var "x"])]
+  in cpsEval env expr idK == Num 10
 
 ------------------------------------------------------------------------------
 -- Main
@@ -248,4 +298,9 @@ main = do
     quickCheck prop_cpsEvalIfError
     quickCheck prop_cpsEvalVar
     quickCheck prop_cpsEvalVarMissing
-
+    quickCheck prop_cpsEvalAdd
+    quickCheck prop_cpsEvalPair
+    quickCheck prop_cpsEvalErrorPropagation
+    quickCheck prop_cpsEvalInvalidApp
+    quickCheck prop_cpsEvalLambdaAdd
+    quickCheck prop_cpsEvalLambdaNested
