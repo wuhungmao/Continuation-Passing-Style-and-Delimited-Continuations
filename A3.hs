@@ -244,9 +244,9 @@ cpsEval env (Var name) k
 -- ... with one additional binding: <id> is bound to the continuation of the shift expression
 -- ... and ignore the continuation of the shift expression
 cpsEval env (Shift var expr) k =
-    let contfunc = Closure (\[v] k' -> k v)
-        env'    = Data.Map.insert var contfunc env
-    in cpsEval env' expr id
+  let contfunc = Closure (\[v] k' -> k' (k v))
+      env'     = Data.Map.insert var contfunc env
+  in cpsEval env' expr id
 
 
 -- reset just calls the expr with the identity continuation
@@ -286,54 +286,37 @@ cpsEval env (Lambda params body) k_lambda =
          in cpsEval newEnv body k_app
 
 
--- CPS evaluation for an application (App proc args)
--- env : the current environment
--- proc : the procedure/expression being applied
--- args : the list of argument expressions
--- k    : the continuation (what to do with the result)
 cpsEval env (App proc args) k =
   -- Step 1: Evaluate the procedure part first (in CPS)
   cpsEval env proc (\res_proc ->
     case res_proc of
-      -- If evaluating 'proc' caused an error, immediately propagate it
-      Error e -> k (Error e)
-
-      -- If 'proc' evaluated to a Closure (function), we can now evaluate the arguments
-      Closure f ->
-        -- Step 2: Evaluate all arguments (in CPS, one by one)
+      (Error e) -> k (Error e)
+      
+      (Closure f) ->
+        -- Step 2: Evaluate all arguments, passing 'k' as the error continuation
         cpsEvalArgs env args (\vargs ->
-          -- Once all arguments are evaluated successfully,
-          -- apply the function 'f' to them, and pass the result to continuation 'k'
+          -- Step 3: Once all arguments are evaluated successfully, apply the function
           f vargs k
-        )
-
+        ) k -- Pass the final continuation 'k' for error short-circuiting
       -- If 'proc' isn't a Closure or Error, it's an invalid function application
       _ -> k (Error "App")
   )
-  where
-    -- Helper: Evaluate a list of arguments in CPS
-    -- env    : environment
-    -- [Expr] : list of argument expressions
-    -- k_args : continuation that takes the list of evaluated arguments
-    cpsEvalArgs :: Env -> [Expr] -> ([Value] -> Value) -> Value
-
-    -- Base case: no arguments to evaluate → call continuation with empty list
-    cpsEvalArgs _ [] k_args = k_args []
-
-    -- Recursive case: evaluate the first argument 'a' in CPS
-    cpsEvalArgs env (a:as) k_args =
-      cpsEval env a (\res_a ->
-        case res_a of
-          -- If any argument evaluation fails, propagate the error right away
-          Error e -> k (Error e)
-
-          -- Otherwise, evaluate the rest of the arguments
-          _ -> cpsEvalArgs env as (\res_as ->
-                 -- Once all args are done, call k_args with full result list
-                 k_args (res_a : res_as))
-      )
-      
+  
 cpsEval env _ k = undefined
+cpsEvalArgs :: Env -> [Expr] -> ([Value] -> Value) -> (Value -> Value) -> Value
+-- Base case: no arguments to evaluate → call continuation with empty list
+cpsEvalArgs _ [] k_args _ = k_args []
+-- Recursive case: evaluate the first argument 'a' in CPS
+cpsEvalArgs env (a:as) k_args k =
+  cpsEval env a (\res_a ->
+    case res_a of
+      -- If any argument evaluation fails, propagate the error right away using 'k'
+      (Error e) -> k (Error e)
+      -- Otherwise, evaluate the rest of the arguments, passing 'k' down again
+      _ -> cpsEvalArgs env as (\res_as ->
+               -- Once all args are done, call k_args with full result list
+               k_args (res_a : res_as)) k
+  )
 
 -- Helper function (written in direct style) to identify duplicate parameters in a lambda
 unique :: (Eq a) => [a] -> [a]
