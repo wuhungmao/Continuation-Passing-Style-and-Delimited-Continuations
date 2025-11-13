@@ -237,6 +237,12 @@ cpsEval env (Var name) k
 -- TO-DOs: add shift, reset, lambda, app
 -- store k into env after binding var to k in env
 -- reset k to id
+-- From lecture notes:
+-- (shift <id> <body>)
+-- Bind the current continuation to <id>
+-- Evaluates <body> in the current environment
+-- ... with one additional binding: <id> is bound to the continuation of the shift expression
+-- ... and ignore the continuation of the shift expression
 cpsEval env (Shift var expr) k =
     let contfunc = Closure (\[v] k' -> k v)
         env'    = Data.Map.insert var contfunc env
@@ -245,8 +251,8 @@ cpsEval env (Shift var expr) k =
 
 -- reset just calls the expr with the identity continuation
 cpsEval env (Reset expr) k =
-    let result = cpsEval env expr id
-    in k result
+    let id_k = (\result -> k result) 
+    in cpsEval env expr id_k
 
 -- eval env (Lambda params body) =  
 --     if params == unique params

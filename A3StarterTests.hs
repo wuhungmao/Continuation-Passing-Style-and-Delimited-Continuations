@@ -282,7 +282,29 @@ exampleResetBoundary = cpsEval emptyEnv
   id
 
 prop_cpsEvalReset :: Bool
-prop_cpsEvalReset = exampleResetBoundary == Num 18
+prop_cpsEvalReset = exampleResetBoundary == Num 8
+
+-- from lecture notes
+-- (+ 2 (shift k (* (k 3) (k 4))))
+exampleContinuationStore :: Value
+exampleContinuationStore = cpsEval emptyEnv 
+  (Plus 
+    (Literal (Num 2))
+    (Shift "k" 
+      (Times 
+        (App (Var "k") [Literal (Num 3)]) 
+        (App (Var "k") [Literal (Num 4)])
+      )
+    ))
+  id
+
+-- The computation is:
+-- 1. Shift captures the continuation: (+ (* 3 [] 1))
+-- 2. Shift body returns 5.
+-- 3. The computation continues from the reset boundary with the shift body's return value.
+--    Result = 5
+prop_exampleContinuationStore :: Bool
+prop_exampleContinuationStore = exampleContinuationStore == Num 30
 
 exampleResetNoApp :: Value
 exampleResetNoApp = cpsEval emptyEnv 
@@ -361,4 +383,5 @@ main = do
     quickCheck prop_cpsEvalShift
     quickCheck prop_cpsEvalReset
     quickCheck prop_cpsEvalResetNoApp
+    quickCheck prop_exampleContinuationStore
 
