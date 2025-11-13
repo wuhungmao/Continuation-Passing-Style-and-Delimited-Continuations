@@ -248,11 +248,11 @@ cpsEval env (Shift var expr) k =
       env'     = Data.Map.insert var contfunc env
   in cpsEval env' expr id
 
-
 -- reset just calls the expr with the identity continuation
 cpsEval env (Reset expr) k =
-    let id_k = (\result -> k result) 
-    in cpsEval env expr id_k
+  let bodyResult = cpsEval env expr id
+  in k bodyResult
+
 
 -- eval env (Lambda params body) =  
 --     if params == unique params
@@ -284,7 +284,6 @@ cpsEval env (Lambda params body) k_lambda =
                             env
                             paramArgTuples
          in cpsEval newEnv body k_app
-
 
 cpsEval env (App proc args) k =
   -- Step 1: Evaluate the procedure part first (in CPS)

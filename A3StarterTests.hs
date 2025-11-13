@@ -312,6 +312,24 @@ exampleShiftAbortNoApp = cpsEval emptyEnv
 prop_cpsEvalShift :: Bool
 prop_cpsEvalShift = exampleShiftAbortNoApp == Num 100
 
+
+-- (reset (+ 1 (shift d (5))) )
+exampleReset1 :: Value
+exampleReset1 = cpsEval emptyEnv 
+    (Reset 
+        (Plus 
+            (Literal (Num 2)) 
+            (Shift "d" 
+                (Literal (Num 5))
+            )
+        )
+    )
+    id
+
+prop_cpsEvalReset1 :: Bool
+prop_cpsEvalReset1 = exampleReset1 == Num 5
+
+-- (+ 3 (+ (reset (+ 1 (shift d (d 5))) ) 10))
 exampleResetBoundary :: Value
 exampleResetBoundary = cpsEval emptyEnv 
   (Plus 
@@ -331,23 +349,19 @@ exampleResetBoundary = cpsEval emptyEnv
   id
 
 prop_cpsEvalReset :: Bool
-prop_cpsEvalReset = exampleResetBoundary == Num 8
+prop_cpsEvalReset = exampleResetBoundary == Num 19
 
+-- (* 10 (+ 2 (reset (shift k (* (k 3) (k 4)) ) ) ) )
 exampleResetNoApp :: Value
 exampleResetNoApp = cpsEval emptyEnv 
-  (Plus 
-    (Literal (Num 100)) 
-    (Plus 
-      (Reset 
-        (Shift "k" (Literal (Num 5))) 
-      ) 
-      (Literal (Num 1)) 
-    )
+  (Times
+    (Literal (Num 10)) 
+    (Plus (Literal (Num 2)) (Reset (Shift "k" (Times (App (Var "k") [Literal (Num 3)]) (App (Var "k") [Literal (Num 4)])) ) ) )
   ) 
   id
 
 prop_cpsEvalResetNoApp :: Bool
-prop_cpsEvalResetNoApp = exampleResetNoApp == Num 106
+prop_cpsEvalResetNoApp = exampleResetNoApp == Num 140
 
 ------------------------------------------------------------------------------
 -- Main
@@ -407,7 +421,8 @@ main = do
 
     -- Shift tests, need to add more tests here later when app is implemented
     quickCheck prop_cpsEvalShift
-    quickCheck prop_cpsEvalReset
-    quickCheck prop_cpsEvalResetNoApp
     quickCheck prop_exampleContinuationStore
+    quickCheck prop_cpsEvalReset
+    quickCheck prop_cpsEvalReset1
+    quickCheck prop_cpsEvalResetNoApp
 
