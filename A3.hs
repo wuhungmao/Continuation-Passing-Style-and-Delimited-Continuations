@@ -270,7 +270,7 @@ cpsEval env (Lambda params body) k_lambda =
     -- 3. Evaluate the body of the function with cpsEval.
     -- 4. Pass the result to k_app (the continuation for the function *application*).
     if length argvals /= length params
-       then Error "Lambda: wrong number of arguments"
+       then Error "Lambda"
        else
          let paramArgTuples = zip params argvals
              newEnv = foldl (\e (param, arg) -> Data.Map.insert param arg e)
