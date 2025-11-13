@@ -195,7 +195,7 @@ cpsEval env (Lambda params body) k_lambda = k_lambda $ Closure $ \argvals k_app 
                        env
                        paramArgTuples
     in cpsEval newEnv body k_app
-cpsEval env _ k = undefined
+-- cpsEval env _ k = undefined
 
 -- CPS evaluation for an application (App proc args)
 -- env : the current environment
