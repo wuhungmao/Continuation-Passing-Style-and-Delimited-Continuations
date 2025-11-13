@@ -197,24 +197,83 @@ exampleVarMissing = cpsEval emptyEnv (Var "y") id
 prop_cpsEvalVarMissing :: Bool
 prop_cpsEvalVarMissing = exampleVarMissing == Error "Var"
 
+
+-- -----------------------------------------------------------------------------
+-- 1. SHIFT ABORT (No App)
+-- Purpose: To test that Shift captures the entire current continuation (the full 1 + ... + 3 context)
+--          and immediately aborts it by running its body (Literal 100) with the identity continuation.
+-- Expression: (1 + Shift k 100) + 3
+-- Expected Result: 100 (The entire surrounding calculation is discarded/aborted)
 exampleShiftAbortNoApp :: Value
 exampleShiftAbortNoApp = cpsEval emptyEnv 
   (Plus 
     (Literal (Num 1)) 
     (Plus 
       (Shift "k" 
-        (Literal (Num 100)) -- The Shift body simply returns 100, aborting the outer Plus
+        (Literal (Num 100))
       ) 
-      (Literal (Num 3)) -- This part (and the initial Literal 1) is skipped/aborted
+      (Literal (Num 3))
     )
   ) 
   id
 
-prop_cpsEvalShift :: Bool
-prop_cpsEvalShift = exampleShiftAbortNoApp == Num 100
+prop_Shift_Abort_NoApp :: Bool
+prop_Shift_Abort_NoApp = exampleShiftAbortNoApp == Num 100
 
-exampleResetBoundary :: Value
-exampleResetBoundary = cpsEval emptyEnv 
+-- -----------------------------------------------------------------------------
+-- 2. SHIFT ABORT (With App)
+-- Purpose: To test that calling the captured continuation ("d") executes the jump. 
+--          The second call (d 10) is never reached because the first call (d 5) aborts the computation.
+-- Expression: 2 + Shift d ( (d 5) + (d 10) )
+-- Continuation captured by "d": \v -> 2 + v
+-- Expected Result: 2 + 5 = 7 (The jump occurs on the first App call)
+exampleShiftAppAbort :: Value
+exampleShiftAppAbort = cpsEval emptyEnv 
+  (Plus 
+    (Literal (Num 2)) 
+    (Shift "d" 
+      (Plus 
+        (App (Var "d") [Literal (Num 5)])
+        (App (Var "d") [Literal (Num 10)])
+      )
+    )
+  ) 
+  id
+
+prop_Shift_App_Abort :: Bool
+prop_Shift_App_Abort = exampleShiftAppAbort == Num 7
+
+-- -----------------------------------------------------------------------------
+-- 3. RESET BOUNDARY (No App)
+-- Purpose: To test that Reset correctly delimits the continuation captured by Shift. 
+--          Shift only aborts up to the Reset, allowing the surrounding 100 + ... + 1 to continue.
+-- Expression: 100 + Reset(Shift k 5) + 1
+-- Execution: Reset block evaluates to 5.
+-- Expected Result: 100 + 5 + 1 = 106
+exampleResetNoApp :: Value
+exampleResetNoApp = cpsEval emptyEnv 
+    (Plus 
+        (Reset 
+        (Shift "k" (Literal (Num 5))) 
+        ) 
+        (Literal (Num 1)) 
+    )
+    id
+
+prop_Reset_NoApp_Boundary :: Bool
+prop_Reset_NoApp_Boundary = exampleResetNoApp == Num 6
+
+-- -----------------------------------------------------------------------------
+-- 4. RESET BOUNDARY (With App)
+-- Purpose: To demonstrate the standard non-abortive use of Shift/Reset. 
+--          The continuation captured by "d" is only the context inside the Reset: 1 + [].
+-- Expression: 3 + Reset (1 + Shift d (d 5)) + 10
+-- Continuation captured by "d": \v -> 1 + v (limited by Reset)
+-- Execution: d 5 executes 1 + 5 = 6. This 6 is the result of the Reset block.
+-- Outer computation: 3 + 6 + 10
+-- Expected Result: 19
+exampleResetAppBoundary :: Value
+exampleResetAppBoundary = cpsEval emptyEnv 
   (Plus 
     (Literal (Num 3)) 
     (Plus 
@@ -231,24 +290,8 @@ exampleResetBoundary = cpsEval emptyEnv
   ) 
   id
 
-prop_cpsEvalReset :: Bool
-prop_cpsEvalReset = exampleResetBoundary == Num 18
-
-exampleResetNoApp :: Value
-exampleResetNoApp = cpsEval emptyEnv 
-  (Plus 
-    (Literal (Num 100)) 
-    (Plus 
-      (Reset 
-        (Shift "k" (Literal (Num 5))) 
-      ) 
-      (Literal (Num 1)) 
-    )
-  ) 
-  id
-
-prop_cpsEvalResetNoApp :: Bool
-prop_cpsEvalResetNoApp = exampleResetNoApp == Num 106
+prop_Reset_App_Boundary :: Bool
+prop_Reset_App_Boundary = exampleResetAppBoundary == Num 19
 
 ------------------------------------------------------------------------------
 -- Main
@@ -302,7 +345,8 @@ main = do
     quickCheck prop_cpsEvalVarMissing
 
     -- Shift tests, need to add more tests here later when app is implemented
-    quickCheck prop_cpsEvalShift
-    quickCheck prop_cpsEvalReset
-    quickCheck prop_cpsEvalResetNoApp
+    quickCheck prop_Shift_Abort_NoApp
+    quickCheck prop_Shift_App_Abort
+    quickCheck prop_Reset_NoApp_Boundary
+    quickCheck prop_Reset_App_Boundary
 

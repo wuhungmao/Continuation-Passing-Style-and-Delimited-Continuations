@@ -242,10 +242,9 @@ cpsEval env (Shift var expr) k =
         env'    = Data.Map.insert var contfunc env
     in cpsEval env' expr id
 
-
--- reset just calls the expr with the identity continuation
-cpsEval env (Reset expr) k = cpsEval env expr id
-
+cpsEval env (Reset expr) k =
+    let result = cpsEval env expr id
+    in k result
 
 -- eval env (Lambda params body) =  
 --     if params == unique params
@@ -325,7 +324,7 @@ cpsEval env (App proc args) k =
                  -- Once all args are done, call k_args with full result list
                  k_args (res_a : res_as))
       )
-      
+
 cpsEval env _ k = undefined
 
 -- Helper function (written in direct style) to identify duplicate parameters in a lambda
