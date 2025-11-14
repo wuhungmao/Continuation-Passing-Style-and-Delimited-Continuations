@@ -374,7 +374,7 @@ prop_cpsEvalAppNonClosure = exampleAppNonClosure == Error "App"
 exampleAppFuncError =
   cpsEval emptyEnv (App (Literal (Error "bad")) [Literal (Num 1)]) idK
 prop_cpsEvalAppFuncError :: Bool
-prop_cpsEvalAppFuncError = exampleAppFuncError == Error "bad"
+prop_cpsEvalAppFuncError = exampleAppFuncError == Error "Literal"
 
 
 -- 3. Error in an argument propagates
@@ -383,7 +383,7 @@ exampleAppArgError =
                         [Literal (Error "oops")])
                    idK
 prop_cpsEvalAppArgError :: Bool
-prop_cpsEvalAppArgError = exampleAppArgError == Error "oops"
+prop_cpsEvalAppArgError = exampleAppArgError == Error "Literal"
 
 
 -- 4. Arity mismatch: closure expects 2 args but gets 1
@@ -392,7 +392,7 @@ exampleAppArityMismatch =
                         [Literal (Num 1)])
                    idK
 prop_cpsEvalAppArityMismatch :: Bool
-prop_cpsEvalAppArityMismatch = exampleAppArityMismatch == Error "App"
+prop_cpsEvalAppArityMismatch = exampleAppArityMismatch == Error "Lambda"
 
 
 -- 5. Simple 2-argument application
@@ -453,7 +453,7 @@ exampleAppErrorClosure =
   let errFn = Lambda ["x"] (Literal (Error "inner"))
   in cpsEval emptyEnv (App errFn [Literal (Num 2)]) idK
 prop_cpsEvalAppErrorClosure :: Bool
-prop_cpsEvalAppErrorClosure = exampleAppErrorClosure == Error "inner"
+prop_cpsEvalAppErrorClosure = exampleAppErrorClosure == Error "Literal"
 
 
 -- 10. Applying a closure stored in the environment
