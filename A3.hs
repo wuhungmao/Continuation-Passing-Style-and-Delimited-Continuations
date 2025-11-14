@@ -253,29 +253,8 @@ cpsEval env (Reset expr) k =
   let bodyResult = cpsEval env expr id
   in k bodyResult
 
-
--- eval env (Lambda params body) =  
---     if params == unique params
---     then Closure $ \vargs ->
---         if length params == length vargs
---         then let paramArgTuples = zip params vargs
---                  newEnv = foldl (\e (param, arg) -> Data.Map.insert param arg e)
---                                 env
---                                 paramArgTuples
---             in eval newEnv body
---         else Error "App"
---     else Error "Lambda"
-
--- CPS evaluation for Lambda expressions
 cpsEval env (Lambda params body) k_lambda =
-  -- Call the continuation k_lambda with a Closure value
-  -- representing the lambda we are defining.
   k_lambda $ Closure $ \argvals k_app ->
-    -- When the closure is *applied*, we:
-    -- 1. Pair up the formal parameters and argument values.
-    -- 2. Extend the environment with these bindings.
-    -- 3. Evaluate the body of the function with cpsEval.
-    -- 4. Pass the result to k_app (the continuation for the function *application*).
     if length argvals /= length params
        then Error "Lambda"
        else
@@ -286,34 +265,24 @@ cpsEval env (Lambda params body) k_lambda =
          in cpsEval newEnv body k_app
 
 cpsEval env (App proc args) k =
-  -- Step 1: Evaluate the procedure part first (in CPS)
   cpsEval env proc (\res_proc ->
     case res_proc of
       (Error e) -> k (Error e)
-      
       (Closure f) ->
-        -- Step 2: Evaluate all arguments, passing 'k' as the error continuation
         cpsEvalArgs env args (\vargs ->
-          -- Step 3: Once all arguments are evaluated successfully, apply the function
           f vargs k
-        ) k -- Pass the final continuation 'k' for error short-circuiting
-      -- If 'proc' isn't a Closure or Error, it's an invalid function application
+        ) k
       _ -> k (Error "App")
   )
   
 cpsEval env _ k = undefined
 cpsEvalArgs :: Env -> [Expr] -> ([Value] -> Value) -> (Value -> Value) -> Value
--- Base case: no arguments to evaluate → call continuation with empty list
 cpsEvalArgs _ [] k_args _ = k_args []
--- Recursive case: evaluate the first argument 'a' in CPS
 cpsEvalArgs env (a:as) k_args k =
   cpsEval env a (\res_a ->
     case res_a of
-      -- If any argument evaluation fails, propagate the error right away using 'k'
       (Error e) -> k (Error e)
-      -- Otherwise, evaluate the rest of the arguments, passing 'k' down again
       _ -> cpsEvalArgs env as (\res_as ->
-               -- Once all args are done, call k_args with full result list
                k_args (res_a : res_as)) k
   )
 
