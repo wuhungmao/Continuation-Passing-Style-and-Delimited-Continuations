@@ -363,6 +363,107 @@ exampleResetNoApp = cpsEval emptyEnv
 prop_cpsEvalResetNoApp :: Bool
 prop_cpsEvalResetNoApp = exampleResetNoApp == Num 140
 
+-- 1. Applying a non-closure (should error)
+exampleAppNonClosure =
+  cpsEval emptyEnv (App (Literal (Num 10)) [Literal (Num 1)]) idK
+prop_cpsEvalAppNonClosure :: Bool
+prop_cpsEvalAppNonClosure = exampleAppNonClosure == Error "App"
+
+
+-- 2. Error in function position propagates
+exampleAppFuncError =
+  cpsEval emptyEnv (App (Literal (Error "bad")) [Literal (Num 1)]) idK
+prop_cpsEvalAppFuncError :: Bool
+prop_cpsEvalAppFuncError = exampleAppFuncError == Error "bad"
+
+
+-- 3. Error in an argument propagates
+exampleAppArgError =
+  cpsEval emptyEnv (App (Lambda ["x"] (Var "x"))
+                        [Literal (Error "oops")])
+                   idK
+prop_cpsEvalAppArgError :: Bool
+prop_cpsEvalAppArgError = exampleAppArgError == Error "oops"
+
+
+-- 4. Arity mismatch: closure expects 2 args but gets 1
+exampleAppArityMismatch =
+  cpsEval emptyEnv (App (Lambda ["a", "b"] (Var "a"))
+                        [Literal (Num 1)])
+                   idK
+prop_cpsEvalAppArityMismatch :: Bool
+prop_cpsEvalAppArityMismatch = exampleAppArityMismatch == Error "App"
+
+
+-- 5. Simple 2-argument application
+exampleAppTwoArgs =
+  cpsEval emptyEnv
+          (App (Lambda ["x","y"] (Plus (Var "x") (Var "y")))
+               [Literal (Num 7), Literal (Num 8)])
+          idK
+prop_cpsEvalAppTwoArgs :: Bool
+prop_cpsEvalAppTwoArgs = exampleAppTwoArgs == Num 15
+
+
+-- 6. Nested App: ( (fn [f] (f 10)) (fn [x] (+ x x)) )
+exampleAppNested =
+  cpsEval emptyEnv
+    (App
+      (Lambda ["f"] (App (Var "f") [Literal (Num 10)]))
+      [Lambda ["x"] (Plus (Var "x") (Var "x"))]
+    )
+    idK
+prop_cpsEvalAppNested :: Bool
+prop_cpsEvalAppNested = exampleAppNested == Num 20
+
+
+-- 7. App returning a closure, then applying the returned closure
+--    ( (fn [x] (fn [y] (+ x y))) 3 ) applied to 7
+exampleAppReturnsClosure =
+  cpsEval emptyEnv
+    (App
+      (App
+        (Lambda ["x"] (Lambda ["y"] (Plus (Var "x") (Var "y"))))
+        [Literal (Num 3)]
+      )
+      [Literal (Num 7)]
+    )
+    idK
+prop_cpsEvalAppReturnsClosure :: Bool
+prop_cpsEvalAppReturnsClosure = exampleAppReturnsClosure == Num 10
+
+
+-- 8. App with Shift: apply the continuation directly
+--    (shift k (k 5)) behaves like just returning 5
+exampleAppShiftCall =
+  cpsEval emptyEnv
+    (App
+      (Lambda ["x"] (Plus (Var "x") (Literal (Num 3))))
+      [Shift "k" (App (Var "k") [Literal (Num 5)])]
+    )
+    idK
+prop_cpsEvalAppShiftCall :: Bool
+prop_cpsEvalAppShiftCall = propVal == Num 8
+  where propVal = exampleAppShiftCall
+
+
+-- 9. Higher-order error propagation:
+--    Function returns an error closure, then applied
+exampleAppErrorClosure =
+  let errFn = Lambda ["x"] (Literal (Error "inner"))
+  in cpsEval emptyEnv (App errFn [Literal (Num 2)]) idK
+prop_cpsEvalAppErrorClosure :: Bool
+prop_cpsEvalAppErrorClosure = exampleAppErrorClosure == Error "inner"
+
+
+-- 10. Applying a closure stored in the environment
+envWithAdder = Data.Map.fromList [("add2", Closure (\[Num x] k -> k (Num (x + 2))))]
+
+exampleAppEnvClosure =
+  cpsEval envWithAdder (App (Var "add2") [Literal (Num 10)]) idK
+prop_cpsEvalAppEnvClosure :: Bool
+prop_cpsEvalAppEnvClosure = exampleAppEnvClosure == Num 12
+
 ------------------------------------------------------------------------------
 -- Main
 ------------------------------------------------------------------------------
@@ -426,3 +527,14 @@ main = do
     quickCheck prop_cpsEvalReset1
     quickCheck prop_cpsEvalResetNoApp
 
+    -- App tests
+    quickCheck prop_cpsEvalAppNonClosure
+    quickCheck prop_cpsEvalAppFuncError
+    quickCheck prop_cpsEvalAppArgError
+    quickCheck prop_cpsEvalAppArityMismatch
+    quickCheck prop_cpsEvalAppTwoArgs
+    quickCheck prop_cpsEvalAppNested
+    quickCheck prop_cpsEvalAppReturnsClosure
+    quickCheck prop_cpsEvalAppShiftCall
+    quickCheck prop_cpsEvalAppErrorClosure
+    quickCheck prop_cpsEvalAppEnvClosure
