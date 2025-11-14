@@ -314,15 +314,19 @@ racketifyValue (Error _) = error "can't racketify an error value"
 
 racketifyExpr :: Expr -> String
 racketifyExpr (Literal v) = racketifyValue v
-racketifyExpr (Plus a b) = undefined
-racketifyExpr (Times a b) = undefined
+racketifyExpr (Plus a b) = "(+ " ++ racketifyExpr a ++ " " ++ racketifyExpr b ++ ")"
+racketifyExpr (Times a b) = "(* " ++ racketifyExpr a ++ " " ++ racketifyExpr b ++ ")"
 racketifyExpr (Equal a b) = "(equal? " ++ racketifyExpr a ++ " " ++ racketifyExpr b ++ ")"
-racketifyExpr (Cons a b) = undefined
-racketifyExpr (First a) = undefined
-racketifyExpr (Rest a) = undefined
+racketifyExpr (Cons a b) = "(cons " ++ racketifyExpr a ++ " " ++ racketifyExpr b ++ ")"
+racketifyExpr (First a) = "(car " ++ racketifyExpr a ++ ")"
+racketifyExpr (Rest a) = "(cdr " ++ racketifyExpr a ++ ")"
 racketifyExpr (Var x) = x
-racketifyExpr (If c t f) = undefined
+racketifyExpr (If c t f) = "(if " ++ racketifyExpr c ++ " " ++ racketifyExpr t ++ " " ++ racketifyExpr f ++ ")"
 racketifyExpr (Lambda xs body) = "(lambda (" ++ intercalate " " xs ++ ") " ++ racketifyExpr body ++ ")"
-racketifyExpr (App f xs) = undefined
+racketifyExpr (App f xs) = "(" ++ racketifyExpr f ++ " " ++ intercalate " " (map racketifyExpr xs) ++ ")"
 racketifyExpr (Shift x e1) = undefined
 racketifyExpr (Reset e1) = undefined
+
+
+-- Comments --
+-- Similar to A2, I work with Saabit Zubairi to complete this assignment. 
