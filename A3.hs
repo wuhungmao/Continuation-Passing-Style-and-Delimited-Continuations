@@ -303,6 +303,7 @@ validLiteral (Pair v w)  = (validLiteral v) && (validLiteral w)
 validLiteral (Closure p) = False
 validLiteral (Error e)   = False
 
+-- copy from A2
 racketifyValue :: Value -> String
 racketifyValue T = "#t"
 racketifyValue F = "#f"
@@ -324,9 +325,8 @@ racketifyExpr (Var x) = x
 racketifyExpr (If c t f) = "(if " ++ racketifyExpr c ++ " " ++ racketifyExpr t ++ " " ++ racketifyExpr f ++ ")"
 racketifyExpr (Lambda xs body) = "(lambda (" ++ intercalate " " xs ++ ") " ++ racketifyExpr body ++ ")"
 racketifyExpr (App f xs) = "(" ++ racketifyExpr f ++ " " ++ intercalate " " (map racketifyExpr xs) ++ ")"
-racketifyExpr (Shift x e1) = undefined
-racketifyExpr (Reset e1) = undefined
-
+racketifyExpr (Shift x e1) = "(shift " ++ x ++ " " ++ racketifyExpr e1 ++ ")"
+racketifyExpr (Reset e1) = "(reset " ++ racketifyExpr e1 ++ ")"
 
 -- Comments --
 -- Similar to A2, I work with Saabit Zubairi to complete this assignment. 
