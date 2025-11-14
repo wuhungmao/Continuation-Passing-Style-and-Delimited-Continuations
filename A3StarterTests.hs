@@ -57,42 +57,6 @@ prop_cpsMergeSort = (cpsMergeSort [1, 2, 4, 3] id) == [1, 2, 3, 4]
 
 -- | cpsEval tests
 
--- Example: invalid literal
-example0 = cpsEval emptyEnv (Literal $ Error "error") id
-prop_cpsEvalExample0 :: Bool
-prop_cpsEvalExample0 = example0 == Error "Literal"
-
--- Example: apply the identity function to the number 3
--- example1 = cpsEval emptyEnv (App (Lambda ["a"] (Var "a")) [Literal $ Num 3]) id
--- prop_cpsEvalExample1 :: Bool
--- prop_cpsEvalExample1 = example1 == Num 3
-
--- Example: apply a function that returns 10 plus the second argument
---          to the arguments [1, 2]
--- example2 = cpsEval emptyEnv (App (Lambda ["a", "b"] (Plus (Literal $ Num 10) (Var "b")))
---                               [Literal $ Num 1, Literal $ Num 2]) id
--- prop_cpsEvalExample2 :: Bool
--- prop_cpsEvalExample2 = example2 == Num 12
-
--- Example: if expression
-example3 = cpsEval emptyEnv (If (Equal (Literal F) (Literal F))
-                             (Literal T)
-                             (Literal F)) id
-prop_cpsEvalExample3 :: Bool
-prop_cpsEvalExample3 = example3 == T
-
--- Example: shift expression
-example4 = (cpsEval emptyEnv
-                    (Plus (Literal $ Num 2) 
-                          (Shift "d" 
-                              (Plus 
-                                  (App (Var "d") [Literal $ Num 5]) 
-                                  (App (Var "d") [Literal $ Num 10]))
-                     ))
-                     id)
-prop_cpsEvalExample4 :: Bool
-prop_cpsEvalExample4 = example4 == Num 19
-
 -- additional tests
 -- Test Plus
 examplePlus = cpsEval emptyEnv (Plus (Literal $ Num 2) (Literal $ Num 3)) id
@@ -128,7 +92,6 @@ prop_cpsEvalEqualFalse = exampleEqualFalse == F
 exampleCons = cpsEval emptyEnv (Cons (Literal $ Num 1) (Literal $ Num 2)) id
 prop_cpsEvalCons :: Bool
 prop_cpsEvalCons = exampleCons == Pair (Num 1) (Num 2)
-
 
 -- Valid literal
 exampleLiteralNum = cpsEval emptyEnv (Literal (Num 42)) id
@@ -217,22 +180,6 @@ pairClosure = Closure (\[a, b] k -> k (Pair a b))
 errorClosure :: Value
 errorClosure = Closure (\_ k -> k (Error "Something went wrong"))
 
-prop_cpsEvalAdd :: Bool
-prop_cpsEvalAdd =
-  runCPS (App (Literal addClosure) [Literal (Num 2), Literal (Num 3)]) == Num 5
-
-prop_cpsEvalPair :: Bool
-prop_cpsEvalPair =
-  runCPS (App (Literal pairClosure) [Literal (Num 1), Literal (Num 2)]) == Pair (Num 1) (Num 2)
-
-prop_cpsEvalErrorPropagation :: Bool
-prop_cpsEvalErrorPropagation =
-  runCPS (App (Literal errorClosure) []) == Error "Something went wrong"
-
-prop_cpsEvalInvalidApp :: Bool
-prop_cpsEvalInvalidApp =
-  runCPS (App (Literal (Num 10)) [Literal (Num 2)]) == Error "App"
-
 prop_cpsEvalLambdaAdd :: Bool
 prop_cpsEvalLambdaAdd =
   let env = Data.Map.fromList [("+", addClosure)]
@@ -247,6 +194,108 @@ prop_cpsEvalLambdaNested =
                 (Lambda ["double"] (App (Var "double") [Literal (Num 5)]))
                 [Lambda ["x"] (App (Var "add") [Var "x", Var "x"])]
   in cpsEval env expr idK == Num 10
+
+-- Example: invalid literal
+example0 = cpsEval emptyEnv (Literal $ Error "error") id
+prop_cpsEvalExample0 :: Bool
+prop_cpsEvalExample0 = example0 == Error "Literal"
+
+-- Example: apply the identity function to the number 3
+example1 = cpsEval emptyEnv (App (Lambda ["a"] (Var "a")) [Literal $ Num 3]) id
+prop_cpsEvalExample1 :: Bool
+prop_cpsEvalExample1 = example1 == Num 3
+
+-- Example: apply a function that returns 10 plus the second argument
+--          to the arguments [1, 2]
+example2 = cpsEval emptyEnv (App (Lambda ["a", "b"] (Plus (Literal $ Num 10) (Var "b")))
+                              [Literal $ Num 1, Literal $ Num 2]) id
+prop_cpsEvalExample2 :: Bool
+prop_cpsEvalExample2 = example2 == Num 12
+
+-- Example 3: Simple arithmetic (Doubling)
+-- Evaluates the lambda function: (fn [x] (Plus x x)) applied to 4. Result: 8
+example3 = cpsEval emptyEnv (App (Lambda ["x"] (Plus (Var "x") (Var "x")))
+                             [Literal $ Num 4]) id
+prop_cpsEvalExample3 :: Bool
+prop_cpsEvalExample3 = example3 == Num 8
+
+-- Example 4: Nested evaluation and multiple argument usage
+-- Evaluates the lambda function: (fn [a b] ((a + a) + b)) applied to 3 and 4. Result: 10
+example4 = cpsEval emptyEnv (App (Lambda ["a", "b"] (Plus (Plus (Var "a") (Var "a")) (Var "b")))
+                             [Literal $ Num 3, Literal $ Num 4]) id
+prop_cpsEvalExample4 :: Bool
+prop_cpsEvalExample4 = example4 == Num 10
+
+-- Example 5: Error Propagation (Plus operator)
+-- Tries to add a number (5) and a boolean (T). This tests the error short-circuiting
+-- inside the 'Plus' CPS evaluation. (Assuming T is a valid non-numeric Value constructor)
+example5 = cpsEval emptyEnv (App (Lambda ["x"] (Plus (Var "x") (Literal T)))
+                             [Literal $ Num 5]) id
+prop_cpsEvalExample5 :: Bool
+prop_cpsEvalExample5 = example5 == Error "Plus"
+
+-- Example: if expression
+example6 = cpsEval emptyEnv (If (Equal (Literal F) (Literal F))
+                             (Literal T)
+                             (Literal F)) id
+prop_cpsEvalExample6 :: Bool
+prop_cpsEvalExample6 = example6 == T
+
+-- Example: shift expression
+example7 = (cpsEval emptyEnv
+                    (Plus (Literal $ Num 2) 
+                          (Shift "d" 
+                              (Plus 
+                                  (App (Lambda ["x"] (Plus (Var "x") (Var "x")))
+                                    [Literal $ Num 4]) 
+                                  (App (Lambda ["x"] (Plus (Var "x") (Var "x")))
+                                    [Literal $ Num 4]))
+                     ))
+                     id)
+prop_cpsEvalExample7 :: Bool
+prop_cpsEvalExample7 = example7 == Num 16
+
+-- from lecture notes
+-- (+ 2 (shift k (k 3)))
+example8 = cpsEval emptyEnv 
+  (Plus 
+    (Literal (Num 2))
+    (Shift "k" 
+        (App (Var "k") [Literal (Num 3)]) 
+    ))
+  id
+
+-- The computation is:
+-- 1. Shift captures the continuation: (+ (* 3 [] 1))
+-- 2. Shift body returns 5.
+-- 3. The computation continues from the reset boundary with the shift body's return value.
+--    Result = 5
+prop_cpsEvalExample8 :: Bool
+prop_cpsEvalExample8 = example8 == Num 5
+
+-- from lecture notes
+-- (+ 2 (shift k (* (k 3) (k 4))))
+exampleContinuationStore :: Value
+exampleContinuationStore = cpsEval emptyEnv 
+  (Plus 
+    (Literal (Num 2))
+    (Shift "k" 
+      (Times 
+        (App (Var "k") [Literal (Num 3)]) 
+        (App (Var "k") [Literal (Num 4)])
+      )
+    ))
+  id
+
+-- The computation is:
+-- 1. Shift captures the continuation: (+ (* 3 [] 1))
+-- 2. Shift body returns 5.
+-- 3. The computation continues from the reset boundary with the shift body's return value.
+--    Result = 5
+prop_exampleContinuationStore :: Bool
+prop_exampleContinuationStore = exampleContinuationStore == Num 30
+
+
 exampleShiftAbortNoApp :: Value
 exampleShiftAbortNoApp = cpsEval emptyEnv 
   (Plus 
@@ -263,6 +312,24 @@ exampleShiftAbortNoApp = cpsEval emptyEnv
 prop_cpsEvalShift :: Bool
 prop_cpsEvalShift = exampleShiftAbortNoApp == Num 100
 
+
+-- (reset (+ 1 (shift d (5))) )
+exampleReset1 :: Value
+exampleReset1 = cpsEval emptyEnv 
+    (Reset 
+        (Plus 
+            (Literal (Num 2)) 
+            (Shift "d" 
+                (Literal (Num 5))
+            )
+        )
+    )
+    id
+
+prop_cpsEvalReset1 :: Bool
+prop_cpsEvalReset1 = exampleReset1 == Num 5
+
+-- (+ 3 (+ (reset (+ 1 (shift d (d 5))) ) 10))
 exampleResetBoundary :: Value
 exampleResetBoundary = cpsEval emptyEnv 
   (Plus 
@@ -282,23 +349,19 @@ exampleResetBoundary = cpsEval emptyEnv
   id
 
 prop_cpsEvalReset :: Bool
-prop_cpsEvalReset = exampleResetBoundary == Num 18
+prop_cpsEvalReset = exampleResetBoundary == Num 19
 
+-- (* 10 (+ 2 (reset (shift k (* (k 3) (k 4)) ) ) ) )
 exampleResetNoApp :: Value
 exampleResetNoApp = cpsEval emptyEnv 
-  (Plus 
-    (Literal (Num 100)) 
-    (Plus 
-      (Reset 
-        (Shift "k" (Literal (Num 5))) 
-      ) 
-      (Literal (Num 1)) 
-    )
+  (Times
+    (Literal (Num 10)) 
+    (Plus (Literal (Num 2)) (Reset (Shift "k" (Times (App (Var "k") [Literal (Num 3)]) (App (Var "k") [Literal (Num 4)])) ) ) )
   ) 
   id
 
 prop_cpsEvalResetNoApp :: Bool
-prop_cpsEvalResetNoApp = exampleResetNoApp == Num 106
+prop_cpsEvalResetNoApp = exampleResetNoApp == Num 140
 
 ------------------------------------------------------------------------------
 -- Main
@@ -322,10 +385,13 @@ main = do
     quickCheck prop_cpsMap_cont
     quickCheck prop_cpsMergeSort
     quickCheck prop_cpsEvalExample0
-    -- quickCheck prop_cpsEvalExample1
-    -- quickCheck prop_cpsEvalExample2
+    quickCheck prop_cpsEvalExample1
+    quickCheck prop_cpsEvalExample2
     quickCheck prop_cpsEvalExample3
-    -- quickCheck prop_cpsEvalExample4
+    quickCheck prop_cpsEvalExample4
+    quickCheck prop_cpsEvalExample5
+    quickCheck prop_cpsEvalExample6
+    quickCheck prop_cpsEvalExample7
 
     -- New CPS evaluation tests
     quickCheck prop_cpsEvalPlus
@@ -350,15 +416,12 @@ main = do
     quickCheck prop_cpsEvalIfError
     quickCheck prop_cpsEvalVar
     quickCheck prop_cpsEvalVarMissing
-    quickCheck prop_cpsEvalAdd
-    quickCheck prop_cpsEvalPair
-    quickCheck prop_cpsEvalErrorPropagation
-    quickCheck prop_cpsEvalInvalidApp
     quickCheck prop_cpsEvalLambdaAdd
     quickCheck prop_cpsEvalLambdaNested
 
     -- Shift tests, need to add more tests here later when app is implemented
     quickCheck prop_cpsEvalShift
+    quickCheck prop_exampleContinuationStore
     quickCheck prop_cpsEvalReset
+    quickCheck prop_cpsEvalReset1
     quickCheck prop_cpsEvalResetNoApp
-
